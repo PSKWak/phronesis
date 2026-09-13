@@ -29,6 +29,9 @@ export async function analyzeImage(imageDataUrl: string): Promise<VisionResult> 
         temperature: 0,
         max_tokens: 150, // reply is a few words of JSON; the model's default max output
                          // tokens (2048) alone exceeds this account tier's per-minute budget
+        reasoning_effort: "none", // this Qwen model emits a <think> block by default, which
+                                   // both burns the token budget above and breaks JSON parsing
+        reasoning_format: "hidden", // belt-and-suspenders: strip any reasoning that leaks through
         messages: [
           {
             role: "user",
@@ -54,7 +57,8 @@ export async function analyzeImage(imageDataUrl: string): Promise<VisionResult> 
       throw new Error(`Groq vision returned ${resp.status}${bodyText ? `: ${bodyText.slice(0, 300)}` : ""}`);
     }
     const data = await resp.json();
-    const raw: string = data.choices?.[0]?.message?.content ?? "";
+    const rawContent: string = data.choices?.[0]?.message?.content ?? "";
+    const raw = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error(`no JSON found in vision response: ${raw.slice(0, 300)}`);
     const parsed = JSON.parse(match[0]);
