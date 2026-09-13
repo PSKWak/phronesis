@@ -86,7 +86,7 @@ This matters because an evidence-log entry that can't be replayed isn't useful a
 
 | Variable | Required? | Enables | Get one at |
 |---|---|---|---|
-| — | no key needed | Weather grounding (Open-Meteo) | always live |
+| `Open-Meteo`| no key needed | Weather grounding (Open-Meteo) | always live |
 | `GROQ_API_KEY` | optional | Vision agent + Compliance agent's LLM-drafted report | [console.groq.com](https://console.groq.com) → API Keys |
 | `SLACK_WEBHOOK_URL` | optional | Compliance agent's Slack escalation | [api.slack.com/apps](https://api.slack.com/apps) → Incoming Webhooks |
 
