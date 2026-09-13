@@ -20,7 +20,11 @@ from gymnasium import make as gymnasium_make
 from gymnasium import register as gymnasium_register
 
 from safety_gymnasium import vector, wrappers
-from safety_gymnasium.tasks.safe_multi_agent.safe_mujoco_multi import make_ma
+
+# safe_mujoco_multi (make_ma) is intentionally not imported here — it pulls in
+# gymnasium_robotics's multiagent_mujoco module, which needs pettingzoo. Not
+# otherwise needed for the single-agent SafetyPointGoal1 environment this
+# deployment actually uses.
 from safety_gymnasium.utils.registration import make, register
 from safety_gymnasium.version import __version__
 
