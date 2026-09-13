@@ -3,7 +3,11 @@ from gymnasium.envs.registration import register
 
 from gymnasium_robotics.core import GoalEnv
 from gymnasium_robotics.envs.maze import maps
-from gymnasium_robotics.envs.multiagent_mujoco import mamujoco_v0
+
+# multiagent_mujoco (mamujoco_v0) is intentionally not imported here — it pulls
+# in pettingzoo, which isn't otherwise needed for the single-agent
+# SafetyPointGoal1 environment this deployment actually uses, and its own
+# gymnasium version requirement conflicts with the one pinned here.
 
 
 def register_robotics_envs():
