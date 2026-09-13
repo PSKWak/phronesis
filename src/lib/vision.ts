@@ -27,6 +27,8 @@ export async function analyzeImage(imageDataUrl: string): Promise<VisionResult> 
       body: JSON.stringify({
         model: GROQ_VISION_MODEL,
         temperature: 0,
+        max_tokens: 150, // reply is a few words of JSON; the model's default max output
+                         // tokens (2048) alone exceeds this account tier's per-minute budget
         messages: [
           {
             role: "user",
