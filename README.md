@@ -1,7 +1,9 @@
 # Phronesis
 
 **Live Website: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
-** Demo (2 minutes) : [phronesis]([https://phronesis-khaki.vercel.app](https://drive.google.com/drive/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf?usp=sharing))**
+
+
+[Watch the Demo]([YOUR_GOOGLE_DRIVE_LINK](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf))
 
 ---
 
