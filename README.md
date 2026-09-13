@@ -4,6 +4,8 @@ Phronesis is a multi-agent continuous-assurance layer for physical AI — it tes
 
 **Live demo: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
 
+This repo also includes the original [Python/MuJoCo reference prototype](python/) the web app's simulation logic was ported from — see `python/README.md` for how to run it.
+
 ## Workflow
 
 ```mermaid
@@ -66,6 +68,17 @@ phronesis/
 │       ├── vision.ts           # Vision agent (Groq image analysis)
 │       ├── compliance.ts       # Compliance agent (Groq report + Slack)
 │       └── simulate.ts         # runs one episode, shield on or off
+├── python/                     # original MuJoCo/safety-gymnasium reference prototype
+│   ├── main.py
+│   ├── controller.py
+│   ├── shield.py
+│   ├── red_team.py
+│   ├── weather.py
+│   ├── compliance_agent.py
+│   ├── evidence_log.py
+│   ├── patch_sg.py
+│   ├── requirements.txt
+│   └── README.md
 ├── package.json
 └── README.md
 ```
