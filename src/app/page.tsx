@@ -234,7 +234,8 @@ export default function Home() {
                   <Badge
                     ok={result.compliance.slackPosted}
                     okLabel="Posted to Slack"
-                    offLabel="Slack not configured"
+                    offLabel={result.compliance.slackError ? "Slack error" : "Slack not configured"}
+                    danger={!!result.compliance.slackError}
                   />
                 </div>
               </div>
@@ -387,14 +388,21 @@ function RiskGauge({ score }: { score: number }) {
   );
 }
 
-function Badge({ ok, okLabel, offLabel }: { ok: boolean; okLabel: string; offLabel: string }) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-[11px] ${
-        ok ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-500/15 text-zinc-400"
-      }`}
-    >
-      {ok ? okLabel : offLabel}
-    </span>
-  );
+function Badge({
+  ok,
+  okLabel,
+  offLabel,
+  danger,
+}: {
+  ok: boolean;
+  okLabel: string;
+  offLabel: string;
+  danger?: boolean;
+}) {
+  const cls = ok
+    ? "bg-emerald-500/15 text-emerald-400"
+    : danger
+      ? "bg-red-500/15 text-red-400"
+      : "bg-zinc-500/15 text-zinc-400";
+  return <span className={`rounded-full px-2.5 py-0.5 text-[11px] ${cls}`}>{ok ? okLabel : offLabel}</span>;
 }
