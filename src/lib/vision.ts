@@ -9,6 +9,7 @@ export interface VisionResult {
   used: boolean;
   hazardDensity: number; // 0-1: how cluttered/hazardous the scene looks for a small mobile robot
   description: string;
+  error?: string;
 }
 
 const DEFAULT_VISION: VisionResult = { used: false, hazardDensity: 0, description: "" };
@@ -46,17 +47,21 @@ export async function analyzeImage(imageDataUrl: string): Promise<VisionResult> 
       }),
       signal: AbortSignal.timeout(25000),
     });
-    if (!resp.ok) throw new Error(`Groq vision returned ${resp.status}`);
+    if (!resp.ok) {
+      const bodyText = await resp.text().catch(() => "");
+      throw new Error(`Groq vision returned ${resp.status}${bodyText ? `: ${bodyText.slice(0, 300)}` : ""}`);
+    }
     const data = await resp.json();
     const raw: string = data.choices?.[0]?.message?.content ?? "";
     const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("no JSON found in vision response");
+    if (!match) throw new Error(`no JSON found in vision response: ${raw.slice(0, 300)}`);
     const parsed = JSON.parse(match[0]);
     const hazardDensity = Math.min(1, Math.max(0, Number(parsed.hazard_density) || 0));
     const description = String(parsed.description || "").slice(0, 200);
     return { used: true, hazardDensity, description };
   } catch (exc) {
+    const message = exc instanceof Error ? exc.message : String(exc);
     console.error("[vision] image analysis failed; ignoring image for this run.", exc);
-    return DEFAULT_VISION;
+    return { ...DEFAULT_VISION, error: message };
   }
 }

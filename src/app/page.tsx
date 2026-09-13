@@ -27,6 +27,7 @@ interface VisionResult {
   used: boolean;
   hazardDensity: number;
   description: string;
+  error?: string;
 }
 
 interface RunResponse {
@@ -209,7 +210,11 @@ export default function Home() {
 
         {result && (
           <>
-            <div className={`mb-8 grid gap-4 sm:grid-cols-2 ${result.vision.used ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+            <div
+              className={`mb-8 grid gap-4 sm:grid-cols-2 ${
+                result.vision.used || result.vision.error ? "lg:grid-cols-4" : "lg:grid-cols-3"
+              }`}
+            >
               <StatCard
                 title="Weather grounding"
                 sub={
@@ -242,18 +247,29 @@ export default function Home() {
               <StatCard title="Risk score (shield on)" sub="0–100, escalation trigger">
                 <RiskGauge score={result.on.riskScore} />
               </StatCard>
-              {result.vision.used && (
-                <StatCard title="Vision agent" sub="live · Groq image analysis">
-                  <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-purple-400"
-                      style={{ width: `${Math.round(result.vision.hazardDensity * 100)}%` }}
-                    />
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">
-                    hazard density {result.vision.hazardDensity.toFixed(2)}
-                  </div>
-                  <div className="mt-1 text-xs italic text-zinc-400">&ldquo;{result.vision.description}&rdquo;</div>
+              {(result.vision.used || result.vision.error) && (
+                <StatCard
+                  title="Vision agent"
+                  sub={result.vision.used ? "live · Groq image analysis" : "analysis failed"}
+                >
+                  {result.vision.used ? (
+                    <>
+                      <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-purple-400"
+                          style={{ width: `${Math.round(result.vision.hazardDensity * 100)}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        hazard density {result.vision.hazardDensity.toFixed(2)}
+                      </div>
+                      <div className="mt-1 text-xs italic text-zinc-400">
+                        &ldquo;{result.vision.description}&rdquo;
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-red-400">{result.vision.error}</div>
+                  )}
                 </StatCard>
               )}
             </div>
