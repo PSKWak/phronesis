@@ -90,6 +90,7 @@ export default function Home() {
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [lastRunImage, setLastRunImage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const maxFrame = result ? Math.max(result.off.trajectory.length, result.on.trajectory.length) - 1 : 0;
@@ -123,6 +124,9 @@ export default function Home() {
             margin: replayOf.margin,
           }
         : { nTrials: 40, imageDataUrl: imageDataUrl ?? undefined };
+      // Snapshot which image (if any) this specific run used, independent of
+      // whatever the upload widget holds by the time the response comes back.
+      setLastRunImage(replayOf ? null : imageDataUrl);
       const resp = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -159,7 +163,10 @@ export default function Home() {
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
             Continuous assurance for physical AI
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">Phronesis</h1>
+          <div className="flex items-center gap-3">
+            <Logo />
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">Phronesis</h1>
+          </div>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
             A multi-agent layer that sits between a robot policy and the world: a{" "}
             <span className="text-zinc-200">Red-Team agent</span> adversarially searches for failure scenarios, a{" "}
@@ -274,6 +281,12 @@ export default function Home() {
               )}
             </div>
 
+            {lastRunImage && (
+              <p className="mb-2 text-[11px] text-zinc-600">
+                Backdrop is the photo you uploaded — hazard/path positions are still from the simulation, not
+                detected from the image.
+              </p>
+            )}
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
               <div>
                 <SimCanvas
@@ -283,6 +296,7 @@ export default function Home() {
                   frame={frame}
                   accentLabel="SHIELD OFF"
                   accentColor="#ef4444"
+                  backgroundImage={lastRunImage}
                 />
                 <MetricsRow ep={result.off} />
               </div>
@@ -294,6 +308,7 @@ export default function Home() {
                   frame={frame}
                   accentLabel="SHIELD ON"
                   accentColor="#38bdf8"
+                  backgroundImage={lastRunImage}
                 />
                 <MetricsRow ep={result.on} />
               </div>
@@ -411,6 +426,23 @@ function PlaybackControls({
         className="w-40"
       />
     </div>
+  );
+}
+
+function Logo() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true" className="shrink-0">
+      <polygon points="24,3 42,13 42,35 24,45 6,35 6,13" fill="none" stroke="#f59e0b" strokeWidth="2.2" />
+      <circle cx="24" cy="24" r="5.5" fill="none" stroke="#f59e0b" strokeWidth="2" />
+      <circle cx="24" cy="24" r="1.8" fill="#f59e0b" />
+      <path
+        d="M13 32 C18 20, 20 14, 24 24 S 32 30, 35 16"
+        fill="none"
+        stroke="#a1a1aa"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
