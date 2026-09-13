@@ -1,12 +1,14 @@
 # Phronesis
 
-Phronesis is a multi-agent continuous-assurance layer for physical AI — it tests, tries to break, and vetoes unsafe robot policies in real time, then escalates what it finds. The bottleneck in physical AI today isn't model capability, it's independent trust and safety validation, and nobody has built the continuous, cross-vendor version of that yet. A Red-Team agent adversarially searches for failure scenarios, a Physics-Grounded Shield overrides unsafe actions in real time independent of the policy, a Vision agent grounds scenario difficulty in a real photo you upload, and a Compliance agent drafts and escalates a live risk report.
-
 **Live demo: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
 
-This repo also includes the original [Python/MuJoCo reference prototype](python/) the web app's simulation logic was ported from — see `python/README.md` for how to run it.
+---
 
-## Workflow
+## 01 — Project overview
+
+**What we built:** Phronesis is a multi-agent continuous-assurance layer for physical AI — it tests, tries to break, and vetoes unsafe robot policies in real time, then escalates what it finds. A **Red-Team agent** adversarially searches seeded scenarios for a failure case. A **Physics-Grounded Shield** checks time-to-collision every step and overrides unsafe actions in real time, independent of the policy under test. A **Vision agent** grounds scenario difficulty in a real photo you upload. A **Compliance agent** drafts a plain-English risk report and escalates it. Every run is bit-for-bit reproducible from a four-number recipe, so a finding isn't just "it happened once" — it's independently re-verifiable.
+
+**The problem it solves:** the bottleneck in physical AI right now isn't model capability, it's independent trust and safety validation — and nobody has built the continuous, cross-vendor version of that yet. Robot policies (foundation models, RL controllers, hand-written control code) get deployed near real hazards without any standardized, vendor-agnostic layer that adversarially tests them, catches failures at runtime regardless of what caused them, and produces an audit trail a safety team or regulator can actually use. Phronesis is infrastructure for that gap — closer to an observability/APM layer for robots than a competing robot policy itself.
 
 ```mermaid
 flowchart TD
@@ -24,10 +26,6 @@ flowchart TD
     H --> L[Dashboard renders result]
 ```
 
-Each stage's output feeds the next, so the pipeline runs sequentially inside one serverless function per request.
-
-## Agents
-
 | Agent | What it does | External service |
 |---|---|---|
 | **Red-Team agent** | Adversarially samples seeded scenarios to find the one where the policy under test fails worst | — (pure computation) |
@@ -37,7 +35,23 @@ Each stage's output feeds the next, so the pipeline runs sequentially inside one
 
 Live weather (Open-Meteo, no key needed) grounds scenario difficulty the same way the Vision agent's photo analysis does — it feeds the same `avoidRadius`/`margin` knobs but isn't itself one of the four agents above.
 
-## How to run
+There are two parallel implementations of the simulation: a from-scratch **TypeScript** engine (`src/lib/`) that powers the live dashboard, and the original **Python/MuJoCo** reference build (`python/`, also runnable live via `/api/mujoco_run` — see below) using real `safety-gymnasium` physics. See [Setup instructions](#03--setup-instructions) for both.
+
+## 02 — External apps used
+
+The agents connect to three real external services, live, on every run — not mocked:
+
+| Service | Used by | What for | Key required? |
+|---|---|---|---|
+| **Open-Meteo** | Weather grounding | Live wind speed + visibility tune scenario difficulty | No — always live |
+| **Groq** | Vision agent + Compliance agent | Vision-capable LLM analyzes an uploaded photo for hazard density; a text LLM drafts the plain-English safety report | Yes — `GROQ_API_KEY` |
+| **Slack** | Compliance agent | Posts the drafted report to a channel via an Incoming Webhook | Yes — `SLACK_WEBHOOK_URL` |
+
+Groq is deliberately reused for both the Vision agent and the Compliance agent's report drafting — one key, two agents, no extra service to configure. Each integration degrades gracefully (falls back to a logged message instead of crashing) when its key isn't set, so the pipeline never breaks for missing credentials — see [`compliance.ts`](src/lib/compliance.ts), [`vision.ts`](src/lib/vision.ts), [`weather.ts`](src/lib/weather.ts).
+
+## 03 — Setup instructions
+
+### Run the web app locally
 
 ```bash
 git clone https://github.com/PSKWak/phronesis.git
@@ -48,7 +62,45 @@ npm run dev
 
 Open http://localhost:3000. With no environment variables set, weather grounding is live (no key required) and the Vision/Compliance agents fall back to logging what they would have sent instead of failing.
 
-## Project structure
+### Environment variables
+
+| Variable | Required? | Enables | Get one at |
+|---|---|---|---|
+| — | no key needed | Weather grounding (Open-Meteo) | always live |
+| `GROQ_API_KEY` | optional | Vision agent + Compliance agent's LLM-drafted report | [console.groq.com](https://console.groq.com) → API Keys |
+| `SLACK_WEBHOOK_URL` | optional | Compliance agent's Slack escalation | [api.slack.com/apps](https://api.slack.com/apps) → Incoming Webhooks |
+
+Set both in the Vercel project's **Settings → Environment Variables** (Production scope) and redeploy (`vercel deploy --prod`, or push to `main` if Git integration is connected) for the running functions to pick them up.
+
+### Deploy
+
+```bash
+vercel deploy --prod
+```
+
+### Run the real Python/MuJoCo prototype
+
+The original reference implementation, run against real MuJoCo physics via `safety-gymnasium` rather than the TypeScript reimplementation:
+
+```bash
+cd python
+python -m venv aegis-env
+source aegis-env/Scripts/activate   # Windows: aegis-env\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+
+See [`python/README.md`](python/README.md) for the Windows install gotchas (the package's own pinned dependency versions have no wheels for a current Python) and what each file does.
+
+This same real Python/MuJoCo simulation also runs **live on Vercel** as a standalone serverless function — hit it directly:
+
+```bash
+curl "https://phronesis-khaki.vercel.app/api/mujoco_run?nTrials=6"
+```
+
+It executes genuine MuJoCo physics (not the TypeScript engine) on every request: real Red-Team search, real Shield override, a real Groq-drafted report. It's not wired into the dashboard UI yet — it's a separate, directly-callable endpoint. See [`api/mujoco_run.py`](api/mujoco_run.py).
+
+### Project structure
 
 ```
 phronesis/
@@ -68,24 +120,32 @@ phronesis/
 │       ├── vision.ts           # Vision agent (Groq image analysis)
 │       ├── compliance.ts       # Compliance agent (Groq report + Slack)
 │       └── simulate.ts         # runs one episode, shield on or off
-├── python/                     # original MuJoCo/safety-gymnasium reference prototype
-│   ├── main.py
-│   ├── controller.py
-│   ├── shield.py
-│   ├── red_team.py
-│   ├── weather.py
-│   ├── compliance_agent.py
-│   ├── evidence_log.py
-│   ├── patch_sg.py
-│   ├── requirements.txt
+├── api/
+│   ├── mujoco_run.py           # real MuJoCo/safety-gymnasium simulation, live serverless function
+│   ├── _controller.py, _shield.py, _weather.py, _compliance_agent.py, _patch_sg.py
+│   └── _vendor/                # vendored safety_gymnasium + gymnasium_robotics source
+├── python/                     # original MuJoCo/safety-gymnasium reference prototype (local use)
+│   ├── main.py, controller.py, shield.py, red_team.py, weather.py, compliance_agent.py
+│   ├── evidence_log.py, patch_sg.py, requirements.txt
 │   └── README.md
+├── requirements.txt             # Python deps for api/mujoco_run.py
+├── vercel.json                  # maxDuration config for the Python function
 ├── package.json
 └── README.md
 ```
 
-## Reproducing a result
+## 04 — Reliability testing
 
-Every simulated run is a pure function of four numbers: `(rngSeed, nTrials, avoidRadius, margin)`. A fresh run mints a new `rngSeed` and pulls live weather (and an uploaded photo, if any) to derive `avoidRadius`/`margin`; the API response's `reproduce` field echoes back the exact recipe used. POSTing that recipe back to `/api/run` — the dashboard's "Reproduce this run" button, or "Replay" on any evidence-log row — skips the weather/vision calls and reproduces the identical worst-case seed, trajectories, costs, and override counts, bit-for-bit:
+This project was tested against the **live, deployed system**, not just locally — every fix below was found by actually driving the real app (browser automation, direct `curl` calls) and confirmed with real before/after numbers, not assumed from reading the code.
+
+**Shield behavior, measured, not assumed.** The Shield's evasive maneuver was originally pure repulsion (steer straight away from a hazard), which could leave the robot oscillating near a hazard until it timed out without reaching the goal. This was caught by running 200 seeds and measuring the failure rate — 26/200 timeouts — not by inspection. The fix (steer tangentially, favoring whichever side keeps progress toward the goal) was verified the same way before shipping: timeouts dropped to 17/200, and total cost across the same 200 seeds dropped from 1047 to 764.
+
+**Every external integration was tested with its failure path, not just its happy path.** Each of Open-Meteo, Groq, and Slack was deliberately exercised with its key/webhook missing to confirm the pipeline degrades to a logged fallback instead of crashing, and separately exercised live with real credentials to confirm genuine success. Along the way this surfaced and fixed real production bugs, each root-caused from the actual error response rather than guessed:
+- A Groq `429` rate-limit error, traced to an unset `max_tokens` letting the model's default (2048) alone exceed the account's output-token-per-minute budget.
+- A silently-truncated Vision response, traced to the model's `<think>` reasoning block eating the token budget before it could emit its answer — fixed with `reasoning_effort: "none"`.
+- A Slack `messages_tab_disabled` and later `no_service` error, traced to the webhook initially targeting a DM instead of a channel, then to a miscopied webhook URL — both diagnosed from Slack's actual response body, which the code was changed to surface instead of swallowing.
+
+**Reproducibility is itself a reliability mechanism.** Every run returns a `(rngSeed, nTrials, avoidRadius, margin)` recipe; POSTing it back reproduces the identical worst-case seed, trajectories, costs, and override counts, bit-for-bit (see the "Reproduce this run" / "Replay" controls, or the `curl` example below). This was verified directly: replaying a captured recipe was confirmed to return numerically identical results across repeated calls. An evidence-log entry that can't be replayed isn't useful as evidence, so this was treated as a correctness requirement, not a nice-to-have.
 
 ```bash
 curl -X POST https://phronesis-khaki.vercel.app/api/run \
@@ -93,20 +153,12 @@ curl -X POST https://phronesis-khaki.vercel.app/api/run \
   -d '{"rngSeed": 553385, "nTrials": 40, "avoidRadius": 0.79, "margin": 0.268}'
 ```
 
-This matters because an evidence-log entry that can't be replayed isn't useful as evidence. The only non-deterministic piece by nature is the Groq-drafted report wording (`temperature: 0` minimizes but can't fully eliminate this); the simulation facts it's drafted from are always identical on replay. `package-lock.json` pins exact dependency versions for reproducible installs.
+**The Vercel Python deployment was verified against real platform constraints, not assumed to fit.** Before deploying `api/mujoco_run.py`, the actual installed dependency footprint was measured from a working local venv (~260MB) and checked against Vercel's documented 500MB Python function limit, rather than guessed. The deployment still failed twice on real, unanticipated platform errors — a dependency-resolution conflict from `uv`'s stricter resolver, and a `ModuleNotFoundError` from Vercel's Python runtime not adding a function's own directory to `sys.path` the way a normal script invocation would — both diagnosed from live Vercel build/runtime logs and fixed, then re-verified with live requests until they returned real, varying results (not cached or canned).
 
-## API / environment variable requirements
+**Only non-Python and Python engines were cross-checked qualitatively**, not bit-for-bit, since they're intentionally different physics implementations (TypeScript custom point-mass kinematics vs. real MuJoCo). Both were confirmed to show the same qualitative pattern — a policy with a real, discoverable blind spot, and a shield that measurably reduces cost most of the time.
 
-| Variable | Required? | Enables | Get one at |
-|---|---|---|---|
-| `Open-Meteo`| no key needed | Weather grounding (Open-Meteo) | always live |
-| `GROQ_API_KEY` | optional | Vision agent + Compliance agent's LLM-drafted report | [console.groq.com](https://console.groq.com) → API Keys |
-| `SLACK_WEBHOOK_URL` | optional | Compliance agent's Slack escalation | [api.slack.com/apps](https://api.slack.com/apps) → Incoming Webhooks |
+## 05 — Demo video
 
-Without `GROQ_API_KEY`/`SLACK_WEBHOOK_URL`, the pipeline never crashes — it falls back to a raw-text report and a server-side log line instead. Set both in the Vercel project's **Settings → Environment Variables** (Production scope) and redeploy (`vercel deploy --prod`, or push to `main` if Git integration is connected) for the running functions to pick them up.
+[Demo video — placeholder, add link here](#)
 
-## Deploy
-
-```bash
-vercel deploy --prod
-```
+*(Add a link to a walkthrough no longer than two minutes.)*
