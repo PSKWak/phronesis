@@ -57,7 +57,10 @@ export async function postToSlack(text: string): Promise<{ posted: boolean; erro
       body: JSON.stringify({ text: `:shield: Phronesis Safety Report\n${text}` }),
       signal: AbortSignal.timeout(10000),
     });
-    if (!resp.ok) throw new Error(`Slack webhook returned ${resp.status}`);
+    if (!resp.ok) {
+      const bodyText = await resp.text().catch(() => "");
+      throw new Error(`Slack webhook returned ${resp.status}${bodyText ? `: ${bodyText}` : ""}`);
+    }
     return { posted: true };
   } catch (exc) {
     const message = exc instanceof Error ? exc.message : String(exc);
