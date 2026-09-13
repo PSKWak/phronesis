@@ -1,6 +1,6 @@
 # Phronesis
 
-Phronesis is a multi-agent continuous-assurance layer for physical AI — it tests, tries to break, and vetoes unsafe robot policies in real time, then escalates what it finds. The bottleneck in physical AI today isn't model capability, it's independent trust and safety validation, and nobody has built the continuous, cross-vendor version of that yet. A Red-Team agent adversarially searches for failure scenarios, a Physics-Grounded Shield overrides unsafe actions in real time independent of the policy, a Vision agent grounds scenario difficulty in a real photo you upload, and a Compliance agent drafts and escalates a live risk report. It's infrastructure, not a competitor to model-makers like NVIDIA or Physical Intelligence.
+Phronesis is a multi-agent continuous-assurance layer for physical AI — it tests, tries to break, and vetoes unsafe robot policies in real time, then escalates what it finds. The bottleneck in physical AI today isn't model capability, it's independent trust and safety validation, and nobody has built the continuous, cross-vendor version of that yet. A Red-Team agent adversarially searches for failure scenarios, a Physics-Grounded Shield overrides unsafe actions in real time independent of the policy, a Vision agent grounds scenario difficulty in a real photo you upload, and a Compliance agent drafts and escalates a live risk report.
 
 **Live demo: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
 
