@@ -48,7 +48,7 @@ export function runEpisode(
     let action: Vec2 = policyAction;
     let overridden = false;
     if (shield) {
-      const result = shield.check(state, scenario.hazards, policyAction);
+      const result = shield.check(state, scenario.hazards, scenario.goal, policyAction);
       action = result.action;
       overridden = result.overridden;
     }

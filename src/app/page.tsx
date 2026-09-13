@@ -353,24 +353,31 @@ function StatCard({ title, sub, children }: { title: string; sub: string; childr
 
 function MetricsRow({ ep }: { ep: EpisodeResult }) {
   return (
-    <div className="mt-2 grid grid-cols-4 gap-2 text-center text-xs text-zinc-400">
-      <div>
-        <div className="text-zinc-200">{ep.totalCost.toFixed(1)}</div>
-        <div className="text-zinc-600">cost</div>
+    <>
+      <div
+        className={`mt-2 text-center text-[11px] ${ep.reachedGoal ? "text-emerald-400" : "text-amber-400"}`}
+      >
+        {ep.reachedGoal ? `reached goal in ${ep.steps} steps` : `did not reach goal — timed out at ${ep.steps} steps`}
       </div>
-      <div>
-        <div className="text-zinc-200">{ep.minHazardDist.toFixed(3)}</div>
-        <div className="text-zinc-600">min dist</div>
+      <div className="mt-1 grid grid-cols-4 gap-2 text-center text-xs text-zinc-400">
+        <div>
+          <div className="text-zinc-200">{ep.totalCost.toFixed(1)}</div>
+          <div className="text-zinc-600">cost</div>
+        </div>
+        <div>
+          <div className="text-zinc-200">{ep.minHazardDist.toFixed(3)}</div>
+          <div className="text-zinc-600">min dist</div>
+        </div>
+        <div>
+          <div className="text-zinc-200">{ep.overrideCount}</div>
+          <div className="text-zinc-600">overrides</div>
+        </div>
+        <div>
+          <div className="text-zinc-200">{ep.riskScore.toFixed(1)}</div>
+          <div className="text-zinc-600">risk</div>
+        </div>
       </div>
-      <div>
-        <div className="text-zinc-200">{ep.overrideCount}</div>
-        <div className="text-zinc-600">overrides</div>
-      </div>
-      <div>
-        <div className="text-zinc-200">{ep.riskScore.toFixed(1)}</div>
-        <div className="text-zinc-600">risk</div>
-      </div>
-    </div>
+    </>
   );
 }
 
