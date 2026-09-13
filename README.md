@@ -160,8 +160,4 @@ curl -X POST https://phronesis-khaki.vercel.app/api/run \
 
 **Only non-Python and Python engines were cross-checked qualitatively**, not bit-for-bit, since they're intentionally different physics implementations (TypeScript custom point-mass kinematics vs. real MuJoCo). Both were confirmed to show the same qualitative pattern — a policy with a real, discoverable blind spot, and a shield that measurably reduces cost most of the time.
 
-## 05 — Demo video
 
-[Demo video — [placeholder, add link here](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf)](#)
-
-*(Add a link to a walkthrough no longer than two minutes.)*
