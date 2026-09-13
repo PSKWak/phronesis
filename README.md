@@ -162,6 +162,6 @@ curl -X POST https://phronesis-khaki.vercel.app/api/run \
 
 ## 05 — Demo video
 
-[Demo video — placeholder, add link here](#)
+[Demo video — [placeholder, add link here](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf)](#)
 
 *(Add a link to a walkthrough no longer than two minutes.)*
