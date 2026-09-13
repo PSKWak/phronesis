@@ -3,7 +3,7 @@
 **Live Website: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
 
 
-[Watch the Demo]([YOUR_GOOGLE_DRIVE_LINK](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf))
+[Watch the Demo](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf)
 
 ---
 
