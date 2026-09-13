@@ -4,7 +4,8 @@ Live: https://phronesis-khaki.vercel.app
 
 A continuous-assurance layer for physical AI: a Red-Team agent adversarially
 searches seeded scenarios for policy failures, a Physics-Grounded Shield
-overrides unsafe actions in real time independent of the policy, and a
+overrides unsafe actions in real time independent of the policy, a Vision
+agent optionally grounds scenario difficulty in a real photo, and a
 Compliance agent drafts a risk report and escalates it. This is a from-scratch
 TypeScript reimplementation of the point-robot simulation from the original
 Python/MuJoCo prototype (see `../` for that), rebuilt so the whole pipeline
@@ -12,19 +13,29 @@ runs inside a Vercel serverless function.
 
 ## Architecture
 
-One route, `src/app/api/run/route.ts`, orchestrates three stages sequentially
+One route, `src/app/api/run/route.ts`, orchestrates these stages sequentially
 (each stage's output feeds the next, so there's nothing to parallelize):
 
 1. **Weather** (`src/lib/weather.ts`) — live call to the Open-Meteo API (no
    key required) grounds scenario difficulty (`avoidRadius`, `margin`) in
    real wind/visibility conditions.
-2. **Red-Team** (`src/lib/redTeam.ts`) — samples `nTrials` seeds, runs each
+2. **Vision** (`src/lib/vision.ts`, optional) — if the client attaches a photo,
+   sends it to a Groq vision-capable model, which estimates a 0-1 hazard
+   density for the scene. That estimate boosts `avoidRadius`/`margin` further,
+   the same way weather does — reusing `GROQ_API_KEY`, no new service to
+   configure. Skipped entirely (not just gracefully degraded) when no image
+   is attached, so the golden path is unaffected.
+3. **Red-Team** (`src/lib/redTeam.ts`) — samples `nTrials` seeds, runs each
    through the deterministic physics engine (`src/lib/physics.ts`,
    `src/lib/controller.ts`), and returns the worst (highest-cost) scenario.
-3. **Shield** (`src/lib/shield.ts`) — a time-to-collision override wrapped
+4. **Shield** (`src/lib/shield.ts`) — a time-to-collision override wrapped
    around every step of the episode (`src/lib/simulate.ts`), run once with
-   the shield off and once on, for direct comparison.
-4. **Compliance** (`src/lib/compliance.ts`) — drafts a plain-English report
+   the shield off and once on, for direct comparison. Steers tangentially
+   around the nearest hazard (favoring whichever side keeps progress toward
+   the goal) rather than pure repulsion, which otherwise could leave the
+   robot oscillating near a hazard until it timed out without reaching the
+   goal.
+5. **Compliance** (`src/lib/compliance.ts`) — drafts a plain-English report
    via Groq and posts it to Slack.
 
 Groq and Slack degrade gracefully to a raw-text report / a server-side log

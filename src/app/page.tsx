@@ -23,8 +23,15 @@ interface ReproduceRecipe {
   isReplay: boolean;
 }
 
+interface VisionResult {
+  used: boolean;
+  hazardDensity: number;
+  description: string;
+}
+
 interface RunResponse {
   weather: { windSpeed10m: number; visibility: number; source: string };
+  vision: VisionResult;
   knobs: { avoidRadius: number; margin: number };
   redTeam: { trialsRun: number; violations: number; worstSeed: number };
   scenario: { hazards: CanvasHazard[]; goal: [number, number] };
@@ -44,6 +51,36 @@ interface HistoryEntry {
   recipe: ReproduceRecipe;
 }
 
+function resizeImageFile(file: File, maxDim = 768, quality = 0.72): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("could not read file"));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error("could not decode image"));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height >= width && height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("no canvas context"));
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +88,7 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const maxFrame = result ? Math.max(result.off.trajectory.length, result.on.trajectory.length) - 1 : 0;
@@ -83,7 +121,7 @@ export default function Home() {
             avoidRadius: replayOf.avoidRadius,
             margin: replayOf.margin,
           }
-        : { nTrials: 40 };
+        : { nTrials: 40, imageDataUrl: imageDataUrl ?? undefined };
       const resp = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,10 +165,15 @@ export default function Home() {
             <span className="text-zinc-200">Physics-Grounded Shield</span> checks time-to-collision every step and
             overrides unsafe actions independent of the policy, and a{" "}
             <span className="text-zinc-200">Compliance agent</span> drafts a risk report and escalates it. Every run
-            below grounds scenario difficulty in live weather, drafts its report with an LLM, and escalates to Slack —
-            three real external services, called live.
+            below grounds scenario difficulty in live weather — or in a real photo, if you upload one for the{" "}
+            <span className="text-zinc-200">Vision agent</span> to read — drafts its report with an LLM, and escalates
+            to Slack.
           </p>
         </header>
+
+        <div className="mb-5 max-w-md">
+          <ImageDropzone imageDataUrl={imageDataUrl} onChange={setImageDataUrl} />
+        </div>
 
         <div className="mb-8 flex flex-wrap items-center gap-4">
           <button
@@ -166,7 +209,7 @@ export default function Home() {
 
         {result && (
           <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-3">
+            <div className={`mb-8 grid gap-4 sm:grid-cols-2 ${result.vision.used ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
               <StatCard
                 title="Weather grounding"
                 sub={
@@ -199,6 +242,20 @@ export default function Home() {
               <StatCard title="Risk score (shield on)" sub="0–100, escalation trigger">
                 <RiskGauge score={result.on.riskScore} />
               </StatCard>
+              {result.vision.used && (
+                <StatCard title="Vision agent" sub="live · Groq image analysis">
+                  <div className="mb-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-purple-400"
+                      style={{ width: `${Math.round(result.vision.hazardDensity * 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    hazard density {result.vision.hazardDensity.toFixed(2)}
+                  </div>
+                  <div className="mt-1 text-xs italic text-zinc-400">&ldquo;{result.vision.description}&rdquo;</div>
+                </StatCard>
+              )}
             </div>
 
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
@@ -337,6 +394,109 @@ function PlaybackControls({
         }}
         className="w-40"
       />
+    </div>
+  );
+}
+
+function ImageDropzone({
+  imageDataUrl,
+  onChange,
+}: {
+  imageDataUrl: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(file: File | undefined | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("That file isn't an image. Try a JPEG or PNG.");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const dataUrl = await resizeImageFile(file);
+      onChange(dataUrl);
+    } catch {
+      setError("Couldn't read that image. Try a different file.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={imageDataUrl ? "Replace uploaded photo" : "Upload a photo for the Vision agent"}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFile(e.dataTransfer.files?.[0]);
+        }}
+        className={`relative flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
+          dragOver ? "border-purple-400 bg-purple-400/5" : "border-white/15 hover:border-white/30"
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+        />
+        {imageDataUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageDataUrl} alt="Uploaded scene for hazard grounding" className="h-12 w-12 rounded object-cover" />
+            <div className="flex-1 text-xs text-zinc-400">
+              Photo attached — the Vision agent will ground your next run in it
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(null);
+              }}
+              className="shrink-0 rounded border border-white/15 px-2 py-1 text-[11px] text-zinc-300 hover:bg-white/5"
+            >
+              Remove
+            </button>
+          </>
+        ) : (
+          <>
+            <svg
+              className="h-5 w-5 shrink-0 text-zinc-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10.5" r="1.5" />
+              <path d="M21 15l-5-5-9 9" />
+            </svg>
+            <div className="text-xs text-zinc-400">
+              {busy
+                ? "Processing image…"
+                : "Vision agent: drop a photo of a real space, or click to upload (optional)"}
+            </div>
+          </>
+        )}
+      </div>
+      {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
     </div>
   );
 }

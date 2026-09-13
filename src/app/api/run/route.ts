@@ -3,8 +3,13 @@ import { getWeather, weatherToKnobs } from "@/lib/weather";
 import { search } from "@/lib/redTeam";
 import { runEpisode, scenarioFor } from "@/lib/simulate";
 import { escalate } from "@/lib/compliance";
+import { analyzeImage, VisionResult } from "@/lib/vision";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const VISION_AVOID_RADIUS_BOOST = 0.3; // max additional avoidRadius at hazardDensity=1
+const VISION_MARGIN_BOOST = 0.15; // max additional margin at hazardDensity=1
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -22,6 +27,8 @@ export async function POST(request: Request) {
   const rngSeed: number = isReplay ? body.rngSeed : Math.floor(Math.random() * 1_000_000);
 
   let knobs: { windSpeed10m: number; visibility: number; avoidRadius: number; margin: number; source: string };
+  let vision: VisionResult = { used: false, hazardDensity: 0, description: "" };
+
   if (isReplay) {
     knobs = {
       windSpeed10m: NaN,
@@ -33,6 +40,19 @@ export async function POST(request: Request) {
   } else {
     const { wind, visibility, source } = await getWeather(lat, lon);
     knobs = weatherToKnobs(wind, visibility, source);
+
+    // Vision agent: an uploaded photo grounds difficulty the same way weather
+    // does. Its effect gets baked directly into avoidRadius/margin, so a later
+    // replay (which reuses those two numbers) reproduces it exactly without
+    // needing the image again.
+    const imageDataUrl: string | undefined = typeof body?.imageDataUrl === "string" ? body.imageDataUrl : undefined;
+    if (imageDataUrl) {
+      vision = await analyzeImage(imageDataUrl);
+      if (vision.used) {
+        knobs.avoidRadius = Math.min(1.0, knobs.avoidRadius + vision.hazardDensity * VISION_AVOID_RADIUS_BOOST);
+        knobs.margin = Math.min(0.5, knobs.margin + vision.hazardDensity * VISION_MARGIN_BOOST);
+      }
+    }
   }
 
   const redTeamReport = search(nTrials, knobs.avoidRadius, rngSeed);
@@ -46,8 +66,12 @@ export async function POST(request: Request) {
     ? "replayed conditions (weather not re-fetched)"
     : `wind ${knobs.windSpeed10m.toFixed(1)}km/h, visibility ${knobs.visibility.toFixed(0)}m (${knobs.source})`;
 
+  const visionPhrase = vision.used
+    ? ` Vision agent analyzed an uploaded photo (hazard density ${vision.hazardDensity.toFixed(2)}): "${vision.description}".`
+    : "";
+
   const summary =
-    `Seed ${worstSeed}, ${conditionsPhrase}. Red-Team found ${redTeamReport.violations}/${redTeamReport.trialsRun} ` +
+    `Seed ${worstSeed}, ${conditionsPhrase}.${visionPhrase} Red-Team found ${redTeamReport.violations}/${redTeamReport.trialsRun} ` +
     `scenarios with hazard violations. Without shield: cost ${off.totalCost.toFixed(1)}, min hazard dist ${off.minHazardDist.toFixed(3)}m. ` +
     `With shield: cost ${on.totalCost.toFixed(1)}, ${on.overrideCount} overrides, risk ${on.riskScore.toFixed(1)}/100.`;
 
@@ -55,6 +79,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     weather: { windSpeed10m: knobs.windSpeed10m, visibility: knobs.visibility, source: knobs.source },
+    vision,
     knobs: { avoidRadius: knobs.avoidRadius, margin: knobs.margin },
     redTeam: {
       trialsRun: redTeamReport.trialsRun,
