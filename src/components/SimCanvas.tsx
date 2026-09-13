@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export interface CanvasHazard {
   pos: [number, number];
@@ -20,41 +20,12 @@ interface Props {
   frame: number;
   accentLabel: string;
   accentColor: string;
-  backgroundImage?: string | null;
 }
 
 const WORLD_HALF = 1.9;
 
-export default function SimCanvas({
-  hazards,
-  goal,
-  trajectory,
-  frame,
-  accentLabel,
-  accentColor,
-  backgroundImage,
-}: Props) {
+export default function SimCanvas({ hazards, goal, trajectory, frame, accentLabel, accentColor }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const [imgReady, setImgReady] = useState(false);
-
-  // The uploaded photo is decorative context here — hazard/goal/trajectory
-  // positions still come from the abstract seeded simulation, not from
-  // anything detected in the image. Loading is async, so this just tracks
-  // when the image is ready; the draw effect below re-runs once it is.
-  useEffect(() => {
-    setImgReady(false);
-    if (!backgroundImage) {
-      imgRef.current = null;
-      return;
-    }
-    const img = new window.Image();
-    img.onload = () => {
-      imgRef.current = img;
-      setImgReady(true);
-    };
-    img.src = backgroundImage;
-  }, [backgroundImage]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -76,31 +47,21 @@ export default function SimCanvas({
 
     ctx.clearRect(0, 0, size, size);
 
-    if (backgroundImage && imgReady && imgRef.current) {
-      const img = imgRef.current;
-      const scale = Math.max(size / img.width, size / img.height);
-      const dw = img.width * scale;
-      const dh = img.height * scale;
-      ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
-      ctx.fillStyle = "rgba(5,7,10,0.55)";
-      ctx.fillRect(0, 0, size, size);
-    } else {
-      // background grid
-      ctx.fillStyle = "#0b0f14";
-      ctx.fillRect(0, 0, size, size);
-      ctx.strokeStyle = "rgba(255,255,255,0.05)";
-      ctx.lineWidth = 1;
-      const gridStep = size / 12;
-      for (let i = 0; i <= 12; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * gridStep, 0);
-        ctx.lineTo(i * gridStep, size);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, i * gridStep);
-        ctx.lineTo(size, i * gridStep);
-        ctx.stroke();
-      }
+    // background grid
+    ctx.fillStyle = "#0b0f14";
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    ctx.lineWidth = 1;
+    const gridStep = size / 12;
+    for (let i = 0; i <= 12; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * gridStep, 0);
+      ctx.lineTo(i * gridStep, size);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * gridStep);
+      ctx.lineTo(size, i * gridStep);
+      ctx.stroke();
     }
 
     // hazards
@@ -176,7 +137,7 @@ export default function SimCanvas({
     ctx.fillStyle = "rgba(229,231,235,0.7)";
     ctx.font = "12px var(--font-geist-mono), monospace";
     ctx.fillText(accentLabel, 10, 18);
-  }, [hazards, goal, trajectory, frame, accentLabel, accentColor, backgroundImage, imgReady]);
+  }, [hazards, goal, trajectory, frame, accentLabel, accentColor]);
 
   return (
     <canvas
