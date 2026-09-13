@@ -6,13 +6,20 @@ import random
 import sys
 import time
 
+# Vercel's Python runtime loads this file via importlib.util.spec_from_file_location
+# rather than running it as a script, so — unlike normal `python mujoco_run.py`
+# execution — this file's own directory is NOT automatically added to sys.path.
+# Sibling helper modules (_patch_sg, _controller, etc.) need it added explicitly.
+_here = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _here)
+
 # gymnasium_robotics and safety_gymnasium are vendored here (not pip-installed)
 # because their published metadata hard-pins mujoco==2.3.3 / pygame==2.1.0,
 # neither of which has a wheel for Python 3.12+ (Vercel's minimum supported
 # version) — a plain `pip install` of them conflicts with the newer mujoco/
 # pygame this function actually needs. The vendored source is unmodified,
 # just installed via sys.path instead of pip.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+sys.path.insert(0, os.path.join(_here, "_vendor"))
 
 import _patch_sg  # noqa: F401  (must import before safety_gymnasium)
 import safety_gymnasium
