@@ -3,8 +3,6 @@
 **Live Website: [phronesis-khaki.vercel.app](https://phronesis-khaki.vercel.app)**
 
 
-[2 Minutes Demo](https://drive.google.com/drive/u/0/folders/13EjpI_MHNnqvNhOev0C28iYzhltD4EDf)
-
 ---
 
 ## 01 — Project overview
